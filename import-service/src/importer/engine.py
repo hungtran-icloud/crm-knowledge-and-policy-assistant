@@ -1,6 +1,7 @@
 """
-Data Import Engine — Step 1: Quarantine (CKPA-21)
-Isolates invalid rows so they never enter the active dataset.
+Data Import Engine — Step 2: Reconcile (CKPA-22)
+Reconciles record counts: input == accepted + quarantined.
+Supports full snapshot and incremental import auditing.
 """
 
 import os
@@ -36,7 +37,7 @@ class DataImportEngine:
         return sha256.hexdigest()
 
     def _quarantine_rows(self, batch_id: str, file_name: str, rows: List[Dict]) -> Tuple[List, List[QuarantineRecord]]:
-        """CKPA-21: Validate each row; invalid rows go to quarantine, never to active dataset."""
+        """CKPA-21: Validate each row; invalid rows go to quarantine."""
         accepted = []
         quarantined: List[QuarantineRecord] = []
 
@@ -45,7 +46,6 @@ class DataImportEngine:
             "critical_fields": CriticalFieldValidator.validate_row,
             "crm_context": CRMContextValidator.validate_row,
         }
-        # Detect schema by filename
         schema = "passages"
         if "critical" in file_name:
             schema = "critical_fields"
@@ -70,6 +70,12 @@ class DataImportEngine:
 
         return accepted, quarantined
 
+    def _reconcile(self, expected_rows: int, accepted_count: int, quarantined_count: int) -> ReconciliationStatus:
+        """CKPA-22: Audit reconciliation: total expected == accepted + quarantined."""
+        if expected_rows == (accepted_count + quarantined_count):
+            return ReconciliationStatus.MATCH
+        return ReconciliationStatus.MISMATCH
+
     def _export_quarantine_csv(self, batch_id: str, quarantined: List[QuarantineRecord]):
         if not quarantined:
             return
@@ -82,8 +88,16 @@ class DataImportEngine:
             for q in quarantined:
                 writer.writerow([q.batch_id, q.file_name, q.row_number, q.error_code, q.error_reason, q.quarantined_at, q.raw_data])
 
+    def _export_manifest(self, manifest: ManifestRecord):
+        batch_manifest_file = os.path.join(self.output_dir, f"manifest_{manifest.batch_id}.json")
+        with open(batch_manifest_file, "w", encoding="utf-8") as f:
+            json.dump(manifest.to_dict(), f, ensure_ascii=False, indent=2)
+
+        latest_manifest_file = os.path.join(self.output_dir, "manifest_latest.json")
+        with open(latest_manifest_file, "w", encoding="utf-8") as f:
+            json.dump(manifest.to_dict(), f, ensure_ascii=False, indent=2)
+
     def _read_rows(self, file_path: str) -> Tuple[str, List[Dict]]:
-        """Read CSV rows as list of dicts."""
         rows = []
         with open(file_path, "r", encoding="utf-8-sig") as f:
             reader = csv.DictReader(f)
@@ -129,7 +143,7 @@ class DataImportEngine:
 
     def _import_file(self, file_path: str, batch_type: BatchType, force: bool,
                      prefix: str) -> ManifestRecord:
-        """Core import pipeline with CKPA-21 quarantine."""
+        """Import pipeline with CKPA-21 quarantine and CKPA-22 reconciliation."""
         batch_id = f"batch-{prefix}-{uuid.uuid4().hex[:8]}"
         file_name, rows = self._read_rows(file_path)
         file_hash = self.calculate_sha256(file_path)
@@ -143,12 +157,15 @@ class DataImportEngine:
         self.storage.record_quarantine(quarantined)
         self._export_quarantine_csv(batch_id, quarantined)
 
-        recon_status = ReconciliationStatus.MATCH  # placeholder until CKPA-22
+        # CKPA-22: Reconcile counts
+        recon_status = self._reconcile(expected_rows, accepted_count, quarantined_count)
+
         manifest = self._build_manifest(
             batch_id, batch_type, schema, file_name, file_hash,
             expected_rows, accepted_count, quarantined_count, recon_status, notes
         )
         self.storage.record_batch(manifest)
+        self._export_manifest(manifest)
         return manifest
 
     def import_passages(self, file_path: str, batch_type: BatchType = BatchType.SNAPSHOT,
@@ -164,5 +181,4 @@ class DataImportEngine:
         return self._import_file(file_path, batch_type, force, "crm")
 
     def get_snapshot_age(self) -> Dict:
-        """Placeholder — implemented in CKPA-27."""
         return self.storage.get_snapshot_age()
