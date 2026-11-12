@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.backends.legacy:build"
+
+[project]
+name = "songnhat-shared"
+version = "0.1.0"
+description = "Shared schemas, auth utilities and logging config"
+requires-python = ">=3.11"
+dependencies = [
+    "pydantic>=2.5",
+    "structlog>=24.1",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
