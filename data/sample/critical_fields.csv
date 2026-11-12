@@ -1,0 +1,11 @@
+rule_id,clause_ref,field_name,field_type,operator,threshold_value,unit_or_currency,approval_role,exception_route,effective_from,effective_to
+RUL-CK-01,PAS-BG-02,ty_le_chiet_khau_toi_da_tpkd,percentage,<=,5,%,TruongPhongKinhDoanh,Trinh GiamDocKinhDoanh neu vuot 5%,2026-01-01T08:00:00+07:00,
+RUL-CK-02,PAS-BG-02,gia_tri_don_hang_toi_da_tpkd,currency,<,200000000,VND,TruongPhongKinhDoanh,Trinh GiamDocKinhDoanh neu tu 200tr tro len,2026-01-01T08:00:00+07:00,
+RUL-CK-03,PAS-BG-03,ty_le_chiet_khau_toi_da_gdkd,percentage,<=,12,%,GiamDocKinhDoanh,Trinh TongGiamDoc neu vuot 12%,2026-01-01T08:00:00+07:00,
+RUL-CN-01,PAS-BG-05,thoi_han_tra_cham_dai_ly,duration_days,<=,30,ngay,KeToanTruong,Trinh TongGiamDoc neu yeu cau tren 30 ngay,2026-01-01T08:00:00+07:00,
+RUL-COC-01,PAS-BG-06,ty_le_dat_coc_toi_thieu,percentage,>=,40,%,GiamDocTaiChinh,Trinh TongGiamDoc neu giam coc duoi 40%,2026-01-01T08:00:00+07:00,
+RUL-HL-01,PAS-BG-07,thoi_han_hieu_luc_bao_gia,duration_days,<=,15,ngay,TruongPhongKinhDoanh,Lap bang tinh gia moi neu qua 15 ngay,2026-01-01T08:00:00+07:00,
+RUL-SCD-01,PAS-BH-04,thoi_gian_phan_hoi_su_co_vip,duration_days,<=,4,gio,TruongPhongKyThuat,Dieu phoi chi nhanh gan nhat hoac trinh GiamDocKyThuat,2026-01-01T08:00:00+07:00,
+RUL-DM-01,PAS-BH-05,han_muc_doi_moi_bien_tan_tpkt,currency,<=,50000000,VND,TruongPhongKyThuat,Trinh GiamDocKyThuat neu tu 50tr tro len,2026-01-01T08:00:00+07:00,
+RUL-BH-01,PAS-BH-02,thoi_han_bao_hanh_dong_co,duration_days,==,12,thang,GiamDocKyThuat,Khong ap dung ngoai le tru khi co thoa thuan dac biet cua TongGiamDoc,2026-01-01T08:00:00+07:00,
+RUL-KN-01,PAS-BH-09,thoi_han_phan_hoi_khieu_nai,duration_days,<=,48,gio,TruongPhongCSKH,Bao cao TongGiamDoc neu vuot 48 gio,2026-01-01T08:00:00+07:00,
