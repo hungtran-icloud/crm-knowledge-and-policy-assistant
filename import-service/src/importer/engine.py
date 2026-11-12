@@ -1,7 +1,7 @@
 """
-Data Import Engine — Step 2: Reconcile (CKPA-22)
-Reconciles record counts: input == accepted + quarantined.
-Supports full snapshot and incremental import auditing.
+Data Import Engine — Step 3: Idempotent Retry (CKPA-23)
+Prevents duplicate ingestion or status corruption on retries.
+Computes SHA-256 file hash and safely skips already-processed batches.
 """
 
 import os
@@ -76,6 +76,28 @@ class DataImportEngine:
             return ReconciliationStatus.MATCH
         return ReconciliationStatus.MISMATCH
 
+    def _check_idempotent(self, file_hash: str, file_name: str, batch_type: BatchType,
+                          schema: str, force: bool) -> Optional[ManifestRecord]:
+        """CKPA-23: Safe retry check — skip if identical SHA-256 hash was already processed."""
+        if not force and self.storage.is_batch_hash_processed(file_hash):
+            snapshot_info = self.storage.get_snapshot_age()
+            return ManifestRecord(
+                batch_id=f"cached-{file_hash[:8]}",
+                batch_type=batch_type,
+                schema_name=schema,
+                file_name=file_name,
+                file_hash_sha256=file_hash,
+                timestamp=get_now_vn_iso(),
+                expected_rows=0,
+                accepted_rows=0,
+                quarantined_rows=0,
+                tombstone_rows=0,
+                reconciliation_status=ReconciliationStatus.MATCH,
+                snapshot_age_iso=snapshot_info["latest_snapshot_iso"] or get_now_vn_iso(),
+                notes="IDEMPOTENT_SKIPPED: File already processed with identical hash."
+            )
+        return None
+
     def _export_quarantine_csv(self, batch_id: str, quarantined: List[QuarantineRecord]):
         if not quarantined:
             return
@@ -143,11 +165,18 @@ class DataImportEngine:
 
     def _import_file(self, file_path: str, batch_type: BatchType, force: bool,
                      prefix: str) -> ManifestRecord:
-        """Import pipeline with CKPA-21 quarantine and CKPA-22 reconciliation."""
-        batch_id = f"batch-{prefix}-{uuid.uuid4().hex[:8]}"
-        file_name, rows = self._read_rows(file_path)
+        """Import pipeline with quarantine (CKPA-21), reconcile (CKPA-22), and idempotent retry (CKPA-23)."""
+        file_name = os.path.basename(file_path)
         file_hash = self.calculate_sha256(file_path)
         schema = self._detect_schema(file_name)
+
+        # CKPA-23: Idempotent check
+        cached = self._check_idempotent(file_hash, file_name, batch_type, schema, force)
+        if cached:
+            return cached
+
+        batch_id = f"batch-{prefix}-{uuid.uuid4().hex[:8]}"
+        file_name, rows = self._read_rows(file_path)
 
         accepted, quarantined = self._quarantine_rows(batch_id, file_name, rows)
         expected_rows = len(rows)
@@ -157,7 +186,6 @@ class DataImportEngine:
         self.storage.record_quarantine(quarantined)
         self._export_quarantine_csv(batch_id, quarantined)
 
-        # CKPA-22: Reconcile counts
         recon_status = self._reconcile(expected_rows, accepted_count, quarantined_count)
 
         manifest = self._build_manifest(
