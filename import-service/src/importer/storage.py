@@ -1,9 +1,9 @@
 """
 Storage and repository layer using SQLite
-Implements: DAT 01 (provenance), DAT 02 (tombstone markers), OPS 05 (withdrawal), WP02
+Implements: DAT 01 (provenance), DAT 02 (tombstone & version history), OPS 05 (withdrawal), OPS 07 (restore), WP02
 
-CKPA-24: Tombstone mechanism — explicit deletion markers so records that
-disappear from an incremental file are NOT treated as deleted without proof.
+CKPA-24: Tombstone mechanism — explicit deletion markers.
+CKPA-25: Version history — preserves document and passage version history without silent overwrite.
 """
 
 import sqlite3
@@ -37,7 +37,7 @@ class StorageEngine:
     def _init_db(self):
         with self._get_conn() as conn:
             c = conn.cursor()
-            # 1. Passages — is_tombstone marks withdrawn/deleted records (CKPA-24)
+            # 1. Passages table
             c.execute("""
                 CREATE TABLE IF NOT EXISTS passages (
                     passage_id TEXT PRIMARY KEY,
@@ -64,7 +64,7 @@ class StorageEngine:
                 )
             """)
 
-            # 2. Critical Fields — is_tombstone prevents use of revoked rules (CKPA-24)
+            # 2. Critical Fields table
             c.execute("""
                 CREATE TABLE IF NOT EXISTS critical_fields (
                     rule_id TEXT PRIMARY KEY,
@@ -83,7 +83,7 @@ class StorageEngine:
                 )
             """)
 
-            # 3. CRM minimal context (Option O1)
+            # 3. CRM minimal context table (Option O1)
             c.execute("""
                 CREATE TABLE IF NOT EXISTS crm_records (
                     record_key TEXT PRIMARY KEY,
@@ -98,7 +98,21 @@ class StorageEngine:
                 )
             """)
 
-            # 4. Tombstones audit log — explicit record of every deletion/withdrawal (CKPA-24)
+            # 4. Version History (CKPA-25, DAT 01, DAT 02)
+            c.execute("""
+                CREATE TABLE IF NOT EXISTS version_history (
+                    history_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    entity_type TEXT NOT NULL,
+                    entity_id TEXT NOT NULL,
+                    version TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    payload_json TEXT NOT NULL,
+                    batch_id TEXT NOT NULL,
+                    recorded_at TEXT NOT NULL
+                )
+            """)
+
+            # 5. Tombstones (CKPA-24, DAT 02)
             c.execute("""
                 CREATE TABLE IF NOT EXISTS tombstones (
                     tombstone_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -110,7 +124,7 @@ class StorageEngine:
                 )
             """)
 
-            # 5. Batches and Idempotency (DAT 02)
+            # 6. Batches and Idempotency (DAT 02)
             c.execute("""
                 CREATE TABLE IF NOT EXISTS batches (
                     batch_id TEXT PRIMARY KEY,
@@ -122,7 +136,7 @@ class StorageEngine:
                 )
             """)
 
-            # 6. Quarantine records (DAT 08)
+            # 7. Quarantine records (DAT 08)
             c.execute("""
                 CREATE TABLE IF NOT EXISTS quarantine_records (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -136,10 +150,6 @@ class StorageEngine:
                 )
             """)
             conn.commit()
-
-    # =========================================================================
-    # BATCH / IDEMPOTENCY
-    # =========================================================================
 
     def is_batch_hash_processed(self, file_hash: str) -> bool:
         """Idempotent check: has this exact file already been imported?"""
@@ -178,12 +188,12 @@ class StorageEngine:
             ])
             conn.commit()
 
-    # =========================================================================
-    # SAVE (without version history — added in CKPA-25)
-    # =========================================================================
-
     def save_passages(self, records: List[PassageRecord], batch_id: str) -> Tuple[int, List[str]]:
-        """Save passages with tombstone-aware upsert (CKPA-24)."""
+        """
+        Saves passages with version checking (CKPA-25):
+        - If existing has higher version, reject overwrite (DAT 02).
+        - Saves previous version to version_history.
+        """
         accepted = 0
         skipped_notes = []
         now_vn = get_now_vn_iso()
@@ -191,6 +201,25 @@ class StorageEngine:
         with self._get_conn() as conn:
             c = conn.cursor()
             for r in records:
+                # Check existing version
+                c.execute("SELECT version, status, is_tombstone FROM passages WHERE passage_id = ?", (r.passage_id,))
+                existing = c.fetchone()
+                if existing:
+                    existing_ver = existing["version"]
+                    # If late batch has smaller version, ignore overwrite
+                    if r.version < existing_ver:
+                        skipped_notes.append(f"Passage {r.passage_id}: incoming version {r.version} older than {existing_ver}, ignored overwrite")
+                        continue
+
+                    # Record old version into version_history before updating (CKPA-25)
+                    c.execute("SELECT * FROM passages WHERE passage_id = ?", (r.passage_id,))
+                    old_row = dict(c.fetchone())
+                    c.execute("""
+                        INSERT INTO version_history (entity_type, entity_id, version, status, payload_json, batch_id, recorded_at)
+                        VALUES (?, ?, ?, ?, ?, ?, ?)
+                    """, ('passage', r.passage_id, existing_ver, old_row['status'], json.dumps(old_row, ensure_ascii=False), batch_id, now_vn))
+
+                # Upsert current record
                 c.execute("""
                     INSERT OR REPLACE INTO passages (
                         passage_id, document_id, title, original_reference, language,
@@ -218,6 +247,15 @@ class StorageEngine:
         with self._get_conn() as conn:
             c = conn.cursor()
             for r in records:
+                c.execute("SELECT * FROM critical_fields WHERE rule_id = ?", (r.rule_id,))
+                existing = c.fetchone()
+                if existing:
+                    old_row = dict(existing)
+                    c.execute("""
+                        INSERT INTO version_history (entity_type, entity_id, version, status, payload_json, batch_id, recorded_at)
+                        VALUES (?, ?, ?, ?, ?, ?, ?)
+                    """, ('critical_field', r.rule_id, "active", "updated", json.dumps(old_row, ensure_ascii=False), batch_id, now_vn))
+
                 c.execute("""
                     INSERT OR REPLACE INTO critical_fields (
                         rule_id, clause_ref, field_name, field_type, operator,
@@ -240,6 +278,7 @@ class StorageEngine:
 
         with self._get_conn() as conn:
             c = conn.cursor()
+            # Enforce max 5,000 retained rows constraint (DAT 07)
             c.execute("SELECT COUNT(*) FROM crm_records")
             current_count = c.fetchone()[0]
             if current_count + len(records) > 5000:
@@ -261,15 +300,10 @@ class StorageEngine:
             conn.commit()
         return accepted, skipped_notes
 
-    # =========================================================================
-    # TOMBSTONE & WITHDRAWAL (CKPA-24, OPS 05, SEC 05)
-    # =========================================================================
-
     def immediate_withdraw(self, entity_type: str, entity_id: str, role: str, reason: str) -> bool:
         """
-        CKPA-24 — Explicit tombstone: marks entity as WITHDRAWN and writes to
-        tombstones audit log. A disappeared record is NOT assumed deleted without
-        this explicit marker.
+        Kênh withdrawal tức thời (WP02, OPS 05, SEC 05):
+        Ngay lập tức đánh dấu entity sang trạng thái WITHDRAWN và ghi nhận Tombstone.
         """
         now_vn = get_now_vn_iso()
         with self._get_conn() as conn:
@@ -280,7 +314,7 @@ class StorageEngine:
                 if not row:
                     return False
                 c.execute("""
-                    UPDATE passages
+                    UPDATE passages 
                     SET status = ?, is_tombstone = 1, updated_at = ?
                     WHERE passage_id = ?
                 """, (PolicyStatus.WITHDRAWN.value, now_vn, entity_id))
@@ -290,7 +324,7 @@ class StorageEngine:
                 if not row:
                     return False
                 c.execute("""
-                    UPDATE critical_fields
+                    UPDATE critical_fields 
                     SET is_tombstone = 1, updated_at = ?
                     WHERE rule_id = ?
                 """, (now_vn, entity_id))
@@ -303,7 +337,7 @@ class StorageEngine:
             else:
                 return False
 
-            # Tombstone audit log entry
+            # Add to tombstones log
             c.execute("""
                 INSERT INTO tombstones (entity_type, entity_id, tombstone_at, tombstone_by_role, reason)
                 VALUES (?, ?, ?, ?, ?)
@@ -313,6 +347,7 @@ class StorageEngine:
             return True
 
     def get_batch(self, batch_id: str) -> Optional[Dict[str, Any]]:
+        """Retrieves manifest of a specific batch by ID (WP02)"""
         with self._get_conn() as conn:
             c = conn.cursor()
             c.execute("SELECT manifest_json FROM batches WHERE batch_id = ?", (batch_id,))
@@ -322,6 +357,7 @@ class StorageEngine:
             return None
 
     def get_snapshot_age(self) -> Dict[str, Any]:
+        """Returns the latest snapshot age and timestamp (WP02, Section 2)"""
         with self._get_conn() as conn:
             c = conn.cursor()
             c.execute("SELECT created_at FROM batches ORDER BY created_at DESC LIMIT 1")
@@ -345,6 +381,7 @@ class StorageEngine:
             except Exception:
                 age_sec = None
                 age_human = latest_iso
+
             return {
                 "has_snapshot": True,
                 "latest_snapshot_iso": latest_iso,
@@ -353,7 +390,6 @@ class StorageEngine:
             }
 
     def get_active_passage(self, passage_id: str) -> Optional[Dict[str, Any]]:
-        """Returns passage only if NOT tombstoned and NOT withdrawn (CKPA-24)."""
         with self._get_conn() as conn:
             c = conn.cursor()
             c.execute("SELECT * FROM passages WHERE passage_id = ? AND is_tombstone = 0 AND status != 'withdrawn'", (passage_id,))
@@ -361,7 +397,7 @@ class StorageEngine:
             return dict(row) if row else None
 
     # =========================================================================
-    # QUERY INTERFACE
+    # QUERY INTERFACE FOR S3 (POLICY ENGINE) - DAT 04, ANS 02, KNW 03, OPS 03
     # =========================================================================
 
     def query_effective_passages(
@@ -390,10 +426,12 @@ class StorageEngine:
             customer_tier, customer_tier,
             product_line, product_line
         ]
+
         if keyword:
             query += " AND (title LIKE ? OR content_text LIKE ?)"
             kw_param = f"%{keyword}%"
             params.extend([kw_param, kw_param])
+
         query += " ORDER BY effective_from DESC LIMIT ?"
         params.append(limit)
 
@@ -421,37 +459,14 @@ class StorageEngine:
             return [dict(row) for row in c.fetchall()]
 
     # =========================================================================
-    # BACKUP & RESTORE (OPS 07)
+    # PORTABLE EXPORT FOR EXIT & NEUTRAL READER (OPS 08, DEL 04)
     # =========================================================================
-
-    def backup_database(self, backup_file_path: str) -> Dict[str, Any]:
-        os.makedirs(os.path.dirname(os.path.abspath(backup_file_path)), exist_ok=True)
-        with self._get_conn() as src_conn:
-            bck_conn = sqlite3.connect(backup_file_path)
-            src_conn.backup(bck_conn)
-            bck_conn.close()
-        return {"backup_file": backup_file_path, "backup_time": get_now_vn_iso(), "status": "SUCCESS"}
-
-    def restore_database(self, backup_file_path: str) -> Dict[str, Any]:
-        if not os.path.exists(backup_file_path):
-            raise FileNotFoundError(f"Backup file not found: {backup_file_path}")
-        test_conn = sqlite3.connect(backup_file_path)
-        cur = test_conn.cursor()
-        cur.execute("PRAGMA integrity_check;")
-        check_result = cur.fetchone()[0]
-        test_conn.close()
-        if check_result != "ok":
-            raise ValueError(f"Backup file integrity check failed: {check_result}")
-        with sqlite3.connect(backup_file_path) as src_conn:
-            target_conn = self._get_conn()
-            src_conn.backup(target_conn)
-            target_conn.close()
-        return {"restored_from": backup_file_path, "restored_at": get_now_vn_iso(), "integrity_check": check_result, "status": "RESTORED"}
 
     def export_portable_open_archive(self, export_dir: str = "data/export_neutral") -> Dict[str, Any]:
         os.makedirs(export_dir, exist_ok=True)
         manifest_export = {"exported_at": get_now_vn_iso(), "tables": {}}
-        tables = ["passages", "critical_fields", "crm_records", "tombstones", "batches"]
+
+        tables = ["passages", "critical_fields", "crm_records", "version_history", "tombstones", "batches"]
         with self._get_conn() as conn:
             c = conn.cursor()
             for tbl in tables:
@@ -460,8 +475,55 @@ class StorageEngine:
                 target_file = os.path.join(export_dir, f"{tbl}.json")
                 with open(target_file, "w", encoding="utf-8") as f:
                     json.dump(rows, f, ensure_ascii=False, indent=2)
-                manifest_export["tables"][tbl] = {"count": len(rows), "file": target_file}
+                manifest_export["tables"][tbl] = {
+                    "count": len(rows),
+                    "file": target_file
+                }
+
         manifest_path = os.path.join(export_dir, "export_manifest.json")
         with open(manifest_path, "w", encoding="utf-8") as f:
             json.dump(manifest_export, f, ensure_ascii=False, indent=2)
+
         return manifest_export
+
+    # =========================================================================
+    # BACKUP & RESTORE FOR OPS 07 (RPO 24h, RTO 4h)
+    # =========================================================================
+
+    def backup_database(self, backup_file_path: str) -> Dict[str, Any]:
+        os.makedirs(os.path.dirname(os.path.abspath(backup_file_path)), exist_ok=True)
+        with self._get_conn() as src_conn:
+            bck_conn = sqlite3.connect(backup_file_path)
+            src_conn.backup(bck_conn)
+            bck_conn.close()
+
+        return {
+            "backup_file": backup_file_path,
+            "backup_time": get_now_vn_iso(),
+            "status": "SUCCESS"
+        }
+
+    def restore_database(self, backup_file_path: str) -> Dict[str, Any]:
+        if not os.path.exists(backup_file_path):
+            raise FileNotFoundError(f"Backup file not found: {backup_file_path}")
+
+        test_conn = sqlite3.connect(backup_file_path)
+        cur = test_conn.cursor()
+        cur.execute("PRAGMA integrity_check;")
+        check_result = cur.fetchone()[0]
+        test_conn.close()
+
+        if check_result != "ok":
+            raise ValueError(f"Backup file integrity check failed: {check_result}")
+
+        with sqlite3.connect(backup_file_path) as src_conn:
+            target_conn = self._get_conn()
+            src_conn.backup(target_conn)
+            target_conn.close()
+
+        return {
+            "restored_from": backup_file_path,
+            "restored_at": get_now_vn_iso(),
+            "integrity_check": check_result,
+            "status": "RESTORED"
+        }
