@@ -1,7 +1,11 @@
 """
-Data Import Engine — Step 3: Idempotent Retry (CKPA-23)
-Prevents duplicate ingestion or status corruption on retries.
-Computes SHA-256 file hash and safely skips already-processed batches.
+Data Import & Integration Engine (WP02)
+Implements: WP02, DAT 01, DAT 02, DAT 06, DAT 07, DAT 08, OPS 01, VN 03
+
+CKPA-21: Row-by-row quarantine isolation
+CKPA-22: Row reconciliation (input == accepted + quarantined)
+CKPA-23: Idempotent execution via SHA-256 file hash
+CKPA-27: Snapshot age tracking and staleness monitoring
 """
 
 import os
@@ -9,7 +13,7 @@ import csv
 import json
 import hashlib
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import Dict, Any, List, Optional, Tuple
 
 from src.importer.models import (
@@ -37,7 +41,7 @@ class DataImportEngine:
         return sha256.hexdigest()
 
     def _quarantine_rows(self, batch_id: str, file_name: str, rows: List[Dict]) -> Tuple[List, List[QuarantineRecord]]:
-        """CKPA-21: Validate each row; invalid rows go to quarantine."""
+        """CKPA-21: Validate each row; invalid rows go to quarantine, never to active dataset."""
         accepted = []
         quarantined: List[QuarantineRecord] = []
 
@@ -147,6 +151,7 @@ class DataImportEngine:
                         file_name: str, file_hash: str, expected_rows: int,
                         accepted_count: int, quarantined_count: int,
                         recon_status: ReconciliationStatus, notes: List[str]) -> ManifestRecord:
+        snapshot_info = self.get_snapshot_age()
         return ManifestRecord(
             batch_id=batch_id,
             batch_type=batch_type,
@@ -159,18 +164,16 @@ class DataImportEngine:
             quarantined_rows=quarantined_count,
             tombstone_rows=0,
             reconciliation_status=recon_status,
-            snapshot_age_iso=get_now_vn_iso(),
+            snapshot_age_iso=snapshot_info.get("latest_snapshot_iso") or get_now_vn_iso(),
             notes="; ".join(notes) if notes else "OK"
         )
 
     def _import_file(self, file_path: str, batch_type: BatchType, force: bool,
                      prefix: str) -> ManifestRecord:
-        """Import pipeline with quarantine (CKPA-21), reconcile (CKPA-22), and idempotent retry (CKPA-23)."""
         file_name = os.path.basename(file_path)
         file_hash = self.calculate_sha256(file_path)
         schema = self._detect_schema(file_name)
 
-        # CKPA-23: Idempotent check
         cached = self._check_idempotent(file_hash, file_name, batch_type, schema, force)
         if cached:
             return cached
@@ -208,5 +211,6 @@ class DataImportEngine:
                            force: bool = False) -> ManifestRecord:
         return self._import_file(file_path, batch_type, force, "crm")
 
-    def get_snapshot_age(self) -> Dict:
+    def get_snapshot_age(self) -> Dict[str, Any]:
+        """CKPA-27: Retrieve the latest successful snapshot timestamp and calculate age in human-readable and seconds format."""
         return self.storage.get_snapshot_age()
