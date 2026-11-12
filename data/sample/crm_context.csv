@@ -1,0 +1,6 @@
+account_id,record_key,customer_tier,industry,assigned_sales_role,credit_limit_vnd,open_warranty_tickets,account_status,updated_at
+ACC-001,REC-001,VIP,San xuat xi mang,SalesEngineer_Bac,1500000000.0,0,ACTIVE,2026-02-01T08:00:00+07:00
+ACC-002,REC-002,STANDARD,Che bien go,SalesEngineer_Nam,300000000.0,1,ACTIVE,2026-02-01T08:00:00+07:00
+ACC-003,REC-003,AGENT,Dai ly phan phoi cap 1,AccountManager_Trung,800000000.0,0,ACTIVE,2026-02-01T08:00:00+07:00
+ACC-004,REC-004,VIP,Khai khoang than,SalesEngineer_Bac,2000000000.0,2,ACTIVE,2026-02-01T08:00:00+07:00
+ACC-005,REC-005,STANDARD,Det may cong nghiep,SalesEngineer_Nam,150000000.0,0,ACTIVE,2026-02-01T08:00:00+07:00
