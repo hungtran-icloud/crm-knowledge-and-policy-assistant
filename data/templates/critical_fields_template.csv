@@ -1,0 +1,2 @@
+field_id,policy_id,policy_version_id,field_name,field_type,value,unit,currency,approval_role,effective_date,scope,source_clause,status
+CF-001,POL-001,VER-001,Tên trường,number,100,VND,,Manager,2026-01-01,all,Điều 2.3,approved
