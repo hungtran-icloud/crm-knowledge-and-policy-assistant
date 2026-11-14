@@ -12,13 +12,6 @@ build/
 .eggs/
 
 # Data / output
-data/output/
-data/test_output/
-data/test_output_ext/
-data/benchmark_output/
-data/export_neutral/
-*.db
-*.db-journal
 
 # Environment
 .env

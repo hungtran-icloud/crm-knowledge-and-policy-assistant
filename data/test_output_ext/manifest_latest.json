@@ -1,0 +1,15 @@
+{
+  "batch_id": "batch-crm-c1a9a64c",
+  "batch_type": "snapshot",
+  "schema_name": "crm_context",
+  "file_name": "crm_context.csv",
+  "file_hash_sha256": "d2546345335cd1f730b98e6a82a372c46b53e58ac1afc2eace072de397606835",
+  "timestamp": "2026-11-14T21:12:07.397658+07:00",
+  "expected_rows": 5,
+  "accepted_rows": 5,
+  "quarantined_rows": 0,
+  "tombstone_rows": 0,
+  "reconciliation_status": "MATCH",
+  "snapshot_age_iso": "2026-11-14T21:12:07.376750+07:00",
+  "notes": "OK"
+}

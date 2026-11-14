@@ -1,0 +1,29 @@
+{
+  "exported_at": "2026-11-14T21:12:07.427592+07:00",
+  "tables": {
+    "passages": {
+      "count": 0,
+      "file": "C:\\Users\\N07\\Documents\\GitHub\\crm-knowledge-and-policy-assistant\\data\\test_output_ext\\export_portable\\passages.json"
+    },
+    "critical_fields": {
+      "count": 11,
+      "file": "C:\\Users\\N07\\Documents\\GitHub\\crm-knowledge-and-policy-assistant\\data\\test_output_ext\\export_portable\\critical_fields.json"
+    },
+    "crm_records": {
+      "count": 4,
+      "file": "C:\\Users\\N07\\Documents\\GitHub\\crm-knowledge-and-policy-assistant\\data\\test_output_ext\\export_portable\\crm_records.json"
+    },
+    "version_history": {
+      "count": 0,
+      "file": "C:\\Users\\N07\\Documents\\GitHub\\crm-knowledge-and-policy-assistant\\data\\test_output_ext\\export_portable\\version_history.json"
+    },
+    "tombstones": {
+      "count": 2,
+      "file": "C:\\Users\\N07\\Documents\\GitHub\\crm-knowledge-and-policy-assistant\\data\\test_output_ext\\export_portable\\tombstones.json"
+    },
+    "batches": {
+      "count": 4,
+      "file": "C:\\Users\\N07\\Documents\\GitHub\\crm-knowledge-and-policy-assistant\\data\\test_output_ext\\export_portable\\batches.json"
+    }
+  }
+}

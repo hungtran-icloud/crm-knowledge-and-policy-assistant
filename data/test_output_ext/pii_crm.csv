@@ -1,0 +1,2 @@
+account_id,record_key,customer_tier,industry,assigned_sales_role,credit_limit_vnd,open_warranty_tickets,account_status,updated_at,customer_email
+ACC-001,REC-001,VIP,Xay dung,SalesLead_B1,500000000,0,ACTIVE,2026-01-01T08:00:00+07:00,khachhang@example.com

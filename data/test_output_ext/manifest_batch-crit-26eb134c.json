@@ -1,0 +1,15 @@
+{
+  "batch_id": "batch-crit-26eb134c",
+  "batch_type": "increment",
+  "schema_name": "critical_fields",
+  "file_name": "bad_critical_fields.csv",
+  "file_hash_sha256": "0c0087b983a62f5717c4591cb9672b7a84036566267ea6bd3d1fb7be47a67893",
+  "timestamp": "2026-11-14T21:12:07.339747+07:00",
+  "expected_rows": 3,
+  "accepted_rows": 1,
+  "quarantined_rows": 2,
+  "tombstone_rows": 0,
+  "reconciliation_status": "MATCH",
+  "snapshot_age_iso": "2026-11-14T21:12:07.339760+07:00",
+  "notes": "OK"
+}

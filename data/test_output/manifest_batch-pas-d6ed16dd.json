@@ -1,0 +1,15 @@
+{
+  "batch_id": "batch-pas-d6ed16dd",
+  "batch_type": "increment",
+  "schema_name": "passages",
+  "file_name": "bad_passages.csv",
+  "file_hash_sha256": "a6d6f710b3ba206785ce39aac48e288389767a212c1c2456e267385cf605da8f",
+  "timestamp": "2026-11-14T21:12:07.010389+07:00",
+  "expected_rows": 5,
+  "accepted_rows": 2,
+  "quarantined_rows": 3,
+  "tombstone_rows": 0,
+  "reconciliation_status": "MATCH",
+  "snapshot_age_iso": "2026-11-14T21:12:06.977260+07:00",
+  "notes": "OK"
+}

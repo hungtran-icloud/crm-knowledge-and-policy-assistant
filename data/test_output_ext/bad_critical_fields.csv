@@ -1,0 +1,4 @@
+rule_id,clause_ref,field_name,field_type,operator,threshold_value,unit_or_currency,approval_role,exception_route,effective_from,effective_to
+RULE-TEST-01,Dieu 1,discount_max,percentage,<=,15.0,%,TPKD,TGD,2026-01-01T08:00:00+07:00,
+RULE-TEST-02,Dieu 2,discount_max,percentage,INVALID_OP,15.0,%,TPKD,TGD,2026-01-01T08:00:00+07:00,
+RULE-TEST-03,Dieu 3,discount_max,percentage,<=,NOT_A_NUMBER,%,TPKD,TGD,2026-01-01T08:00:00+07:00,

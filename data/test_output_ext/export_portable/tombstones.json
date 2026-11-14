@@ -1,0 +1,18 @@
+[
+  {
+    "tombstone_id": 1,
+    "entity_type": "critical_field",
+    "entity_id": "RUL-CK-01",
+    "tombstone_at": "2026-11-14T21:12:07.408652+07:00",
+    "tombstone_by_role": "PolicyOwner_P2",
+    "reason": "Thu hoi han muc chiet khau TPKD"
+  },
+  {
+    "tombstone_id": 2,
+    "entity_type": "crm_record",
+    "entity_id": "REC-001",
+    "tombstone_at": "2026-11-14T21:12:07.418472+07:00",
+    "tombstone_by_role": "DataAdmin_S2",
+    "reason": "Yeu cau xoa du lieu khach hang theo GDPR / PDPD"
+  }
+]

@@ -1,0 +1,2 @@
+document_id,passage_id,title,original_reference,language,owner_role,approver_role,version,recorded_at,effective_from,effective_to,status,scope_branch,scope_customer_tier,scope_product_line,superseded_by,content_text,has_footnotes_or_tables,footnotes
+DOC-BG-01,PAS-BG-01,Quy trinh cap nhat 2.0,Dieu 1 moi,vi-VN,TPKD,TGĐ,2.0.0,2026-02-01T08:00:00+07:00,2026-02-01T08:00:00+07:00,,effective,ALL,ALL,DONG_CO_DIEN,,Noi dung phien ban 2.0,false,

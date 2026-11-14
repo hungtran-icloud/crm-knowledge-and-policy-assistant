@@ -1,0 +1,15 @@
+{
+  "batch_id": "batch-pas-b97e6f95",
+  "batch_type": "increment",
+  "schema_name": "passages",
+  "file_name": "late_passage.csv",
+  "file_hash_sha256": "3093feae8dcb8bf8d546db98d39fa43f010d689cece871d61d293d46dad3821f",
+  "timestamp": "2026-11-14T21:12:07.045163+07:00",
+  "expected_rows": 1,
+  "accepted_rows": 0,
+  "quarantined_rows": 0,
+  "tombstone_rows": 0,
+  "reconciliation_status": "MISMATCH",
+  "snapshot_age_iso": "2026-11-14T21:12:07.033268+07:00",
+  "notes": "Passage PAS-BG-01: incoming version 1.2.0 older than 2.0.0, ignored overwrite"
+}

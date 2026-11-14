@@ -1,0 +1,34 @@
+[
+  {
+    "batch_id": "batch-crit-26eb134c",
+    "file_hash_sha256": "0c0087b983a62f5717c4591cb9672b7a84036566267ea6bd3d1fb7be47a67893",
+    "batch_type": "increment",
+    "schema_name": "critical_fields",
+    "manifest_json": "{\"batch_id\": \"batch-crit-26eb134c\", \"batch_type\": \"increment\", \"schema_name\": \"critical_fields\", \"file_name\": \"bad_critical_fields.csv\", \"file_hash_sha256\": \"0c0087b983a62f5717c4591cb9672b7a84036566267ea6bd3d1fb7be47a67893\", \"timestamp\": \"2026-11-14T21:12:07.339747+07:00\", \"expected_rows\": 3, \"accepted_rows\": 1, \"quarantined_rows\": 2, \"tombstone_rows\": 0, \"reconciliation_status\": \"MATCH\", \"snapshot_age_iso\": \"2026-11-14T21:12:07.339760+07:00\", \"notes\": \"OK\"}",
+    "created_at": "2026-11-14T21:12:07.339747+07:00"
+  },
+  {
+    "batch_id": "batch-crm-8d047fd8",
+    "file_hash_sha256": "e43e89c5c568555ed457d04eb83db0d98df20078882fd24a08df20835d53d912",
+    "batch_type": "snapshot",
+    "schema_name": "crm_context",
+    "manifest_json": "{\"batch_id\": \"batch-crm-8d047fd8\", \"batch_type\": \"snapshot\", \"schema_name\": \"crm_context\", \"file_name\": \"pii_crm.csv\", \"file_hash_sha256\": \"e43e89c5c568555ed457d04eb83db0d98df20078882fd24a08df20835d53d912\", \"timestamp\": \"2026-11-14T21:12:07.359623+07:00\", \"expected_rows\": 1, \"accepted_rows\": 0, \"quarantined_rows\": 1, \"tombstone_rows\": 0, \"reconciliation_status\": \"MATCH\", \"snapshot_age_iso\": \"2026-11-14T21:12:07.339747+07:00\", \"notes\": \"OK\"}",
+    "created_at": "2026-11-14T21:12:07.359623+07:00"
+  },
+  {
+    "batch_id": "batch-crit-62374a13",
+    "file_hash_sha256": "e0cc5cc3d37cb100fe4f5a6516b345379dc3dba69cfe2e2ea5719fee42220bdf",
+    "batch_type": "snapshot",
+    "schema_name": "critical_fields",
+    "manifest_json": "{\"batch_id\": \"batch-crit-62374a13\", \"batch_type\": \"snapshot\", \"schema_name\": \"critical_fields\", \"file_name\": \"critical_fields.csv\", \"file_hash_sha256\": \"e0cc5cc3d37cb100fe4f5a6516b345379dc3dba69cfe2e2ea5719fee42220bdf\", \"timestamp\": \"2026-11-14T21:12:07.376750+07:00\", \"expected_rows\": 10, \"accepted_rows\": 10, \"quarantined_rows\": 0, \"tombstone_rows\": 0, \"reconciliation_status\": \"MATCH\", \"snapshot_age_iso\": \"2026-11-14T21:12:07.359623+07:00\", \"notes\": \"OK\"}",
+    "created_at": "2026-11-14T21:12:07.376750+07:00"
+  },
+  {
+    "batch_id": "batch-crm-c1a9a64c",
+    "file_hash_sha256": "d2546345335cd1f730b98e6a82a372c46b53e58ac1afc2eace072de397606835",
+    "batch_type": "snapshot",
+    "schema_name": "crm_context",
+    "manifest_json": "{\"batch_id\": \"batch-crm-c1a9a64c\", \"batch_type\": \"snapshot\", \"schema_name\": \"crm_context\", \"file_name\": \"crm_context.csv\", \"file_hash_sha256\": \"d2546345335cd1f730b98e6a82a372c46b53e58ac1afc2eace072de397606835\", \"timestamp\": \"2026-11-14T21:12:07.397658+07:00\", \"expected_rows\": 5, \"accepted_rows\": 5, \"quarantined_rows\": 0, \"tombstone_rows\": 0, \"reconciliation_status\": \"MATCH\", \"snapshot_age_iso\": \"2026-11-14T21:12:07.376750+07:00\", \"notes\": \"OK\"}",
+    "created_at": "2026-11-14T21:12:07.397658+07:00"
+  }
+]
