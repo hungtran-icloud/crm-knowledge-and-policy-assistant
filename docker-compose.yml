@@ -1,0 +1,118 @@
+# docker-compose.yml — Development environment
+# Không dùng trực tiếp cho production. Production cần review riêng.
+#
+# Profiles:
+#   (default) db, redis         — Phase 1-2: Foundation & Retrieval
+#   --profile storage           — Phase 3+: khi cần object storage (MinIO)
+#   --profile app               — Full stack: backend + frontend + nginx + worker
+
+services:
+  # ── Databases (luôn khởi động trong dev) ──────────────────────────────────
+  db:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ckpa_db
+      POSTGRES_USER: ckpa
+      POSTGRES_PASSWORD: ckpa_pass
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./infra/db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ckpa -d ckpa_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Object Storage (chỉ dùng khi --profile storage) ───────────────────────
+  # Nếu Docker Hub/Quay bị block: đặt MINIO_SKIP=true trong .env và dùng local filesystem.
+  storage:
+    image: minio/minio:RELEASE.2024-05-10T01-41-38Z
+    profiles: [storage]
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - miniodata:/data
+
+  # ── Application services (chỉ dùng khi --profile app) ────────────────────
+  backend:
+    profiles: [app]
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+      - ./data:/app/data
+
+  worker:
+    profiles: [app]
+    build:
+      context: ./worker
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file: .env
+    command: celery -A src.celery_app worker -l info
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./worker:/app
+      - ./data:/app/data
+
+  frontend:
+    profiles: [app]
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+
+  nginx:
+    profiles: [app]
+    image: nginx:alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    volumes:
+      - ./infra/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - backend
+      - frontend
+
+volumes:
+  pgdata:
+  miniodata:
